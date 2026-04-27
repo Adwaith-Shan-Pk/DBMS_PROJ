@@ -663,7 +663,7 @@ const _inlineRuntimeConfig = {
   "dbPort": "3306",
   "dbUser": "root",
   "dbPassword": "root",
-  "dbName": "inventory",
+  "dbName": "inventory_db",
   "frontendUrl": "http://localhost:3000"
 };
 const envOptions = {

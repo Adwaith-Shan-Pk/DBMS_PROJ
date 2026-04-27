@@ -1,11 +1,25 @@
+# Dependencies
 frontend/node_modules
 backend/node_modules
 task.md 
 todo.md
 node_modules
+.env
+
+# Build output
 dist
+frontend/.nuxt
+frontend/.output
+backend/.nuxt
+backend/.output
 .nuxt
 .nuxt-*
 .output
 .gen
+
+
+# Logs
 *.log
+npm-debug.log*
+
+
