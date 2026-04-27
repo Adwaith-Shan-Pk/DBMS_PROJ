@@ -1,0 +1,110 @@
+<template>
+  <div class="space-y-5">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Customers</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Manage customer records</p>
+      </div>
+      <BaseButton id="add-customer-btn" @click="openAdd">+ Add Customer</BaseButton>
+    </div>
+
+    <div class="card">
+      <BaseTable :empty="!loading && customers.length === 0" :colspan="5">
+        <template #headers>
+          <th class="table-header">ID</th>
+          <th class="table-header">Name</th>
+          <th class="table-header">Mobile</th>
+          <th class="table-header">Email</th>
+          <th class="table-header">Actions</th>
+        </template>
+        <template #rows>
+          <tr v-if="loading"><td colspan="5" class="table-cell text-center py-8 text-slate-400">Loading…</td></tr>
+          <tr v-for="c in customers" :key="c.id" class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+            <td class="table-cell font-mono">#{{ c.id }}</td>
+            <td class="table-cell font-medium">{{ c.name }}</td>
+            <td class="table-cell">{{ c.mobile }}</td>
+            <td class="table-cell text-slate-400">{{ c.email || '—' }}</td>
+            <td class="table-cell">
+              <div class="flex gap-1">
+                <BaseButton :id="`edit-customer-${c.id}`" variant="ghost" size="sm" @click="openEdit(c)">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+                </BaseButton>
+                <BaseButton :id="`delete-customer-${c.id}`" variant="ghost" size="sm" class="text-red-500" @click="openDelete(c)">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                </BaseButton>
+              </div>
+            </td>
+          </tr>
+        </template>
+      </BaseTable>
+    </div>
+
+    <BaseModal v-model="showModal" :title="editMode ? 'Edit Customer' : 'Add Customer'" max-width="md">
+      <form @submit.prevent="handleSubmit" class="space-y-4">
+        <div v-if="!editMode">
+          <label for="cust-id" class="label">ID *</label>
+          <input id="cust-id" v-model.number="form.id" type="number" required class="input-field" />
+        </div>
+        <div>
+          <label for="cust-name" class="label">Name *</label>
+          <input id="cust-name" v-model="form.name" type="text" required class="input-field" />
+        </div>
+        <div>
+          <label for="cust-mobile" class="label">Mobile *</label>
+          <input id="cust-mobile" v-model="form.mobile" type="text" required class="input-field" />
+        </div>
+        <div>
+          <label for="cust-email" class="label">Email</label>
+          <input id="cust-email" v-model="form.email" type="email" class="input-field" />
+        </div>
+        <p v-if="formError" class="text-sm text-red-500">{{ formError }}</p>
+      </form>
+      <template #footer>
+        <BaseButton variant="secondary" @click="showModal = false">Cancel</BaseButton>
+        <BaseButton id="customer-submit-btn" :loading="saving" @click="handleSubmit">{{ editMode ? 'Update' : 'Create' }}</BaseButton>
+      </template>
+    </BaseModal>
+
+    <ConfirmDialog v-model="showDelete" title="Delete Customer" :message="`Delete '${deleteTarget?.name}'?`" :loading="deleting" @confirm="handleDelete" />
+  </div>
+</template>
+
+<script setup>
+const { apiFetch } = useApi()
+const customers = ref([])
+const loading = ref(true)
+const showModal = ref(false)
+const showDelete = ref(false)
+const editMode = ref(false)
+const saving = ref(false)
+const deleting = ref(false)
+const deleteTarget = ref(null)
+const formError = ref('')
+
+const defaultForm = () => ({ id: '', name: '', mobile: '', email: '' })
+const form = reactive(defaultForm())
+
+const fetchAll = async () => { loading.value = true; const r = await apiFetch('/api/customers'); if (r.success) customers.value = r.data; loading.value = false }
+onMounted(fetchAll)
+
+const openAdd = () => { editMode.value = false; Object.assign(form, defaultForm()); formError.value = ''; showModal.value = true }
+const openEdit = (c) => { editMode.value = true; Object.assign(form, { ...c }); formError.value = ''; showModal.value = true }
+const openDelete = (c) => { deleteTarget.value = c; showDelete.value = true }
+
+const handleSubmit = async () => {
+  formError.value = ''; saving.value = true
+  try {
+    const res = editMode.value
+      ? await apiFetch(`/api/customers/${form.id}`, { method: 'PUT', body: form })
+      : await apiFetch('/api/customers', { method: 'POST', body: form })
+    if (res.success) { showModal.value = false; await fetchAll() }
+    else formError.value = res.message
+  } catch (e) { formError.value = 'Error saving' }
+  finally { saving.value = false }
+}
+const handleDelete = async () => {
+  deleting.value = true
+  try { await apiFetch(`/api/customers/${deleteTarget.value.id}`, { method: 'DELETE' }); showDelete.value = false; await fetchAll() }
+  finally { deleting.value = false }
+}
+</script>
